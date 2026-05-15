@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚬  🚬</title>
+    <title>🚬12O🚬</title>
     <style>
         body, html {
             margin: 0;
@@ -28,23 +28,18 @@
             z-index: 10;
         }
 
-        /* 1. 調整容器：確保在任何螢幕下都只佔高度的 80% (上下留 10%) */
+        /* 讓場景高度鎖定 80vh，寬度由內部的 001.png 自然撐開 */
         #scene {
             position: relative;
-            width: 95px; /* 寬度固定為 95px */
-            height: 80vh; /* 高度縮放至螢幕的 80% */
-            display: flex;
-            justify-content: center;
-            align-items: flex-end; /* 讓內容對齊底部，轉換時不露餡 */
+            height: 80vh;
+            display: inline-block; /* 緊緊包覆內容物 */
         }
 
-        /* 完好的香菸 (01) */
+        /* 完好的香菸 (01) 作為排版與寬度的絕對基準 */
         #cig-full {
             display: block;
-            width: 100%;
-            height: 100%; /* 填滿容器高度 */
-            object-fit: contain; /* 保持比例 */
-            object-position: bottom; /* 貼齊底部 */
+            height: 100%; /* 高度吃滿 80vh */
+            width: auto;  /* 寬度按比例自然縮放 */
             z-index: 2;
             clip-path: inset(0% 0 0 0);
             transition: opacity 3s;
@@ -54,10 +49,10 @@
         #cig-ash {
             position: absolute;
             z-index: 3;
-            width: 100%;
+            /* 寬度強制跟隨 cig-full 撐開的容器寬度，保證邊緣完美貼合 */
+            width: 100%; 
             height: auto;
             left: 0;
-            /* 初始位置由 JS 計算 */
             top: 0; 
             transform: translateY(-50%);
             opacity: 0;
@@ -67,12 +62,10 @@
         /* 燒完的煙蒂 (03) */
         #cig-butt {
             position: absolute;
-            bottom: 0;
+            bottom: 0; /* 完美貼齊底部 */
             left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            object-position: bottom;
+            width: 100%; /* 寬度同樣跟隨基準 */
+            height: auto;
             z-index: 1;
             opacity: 0;
             transition: opacity 3s;
@@ -124,9 +117,8 @@
 
         const DURATION = 120 * 1000; 
         
-        // 燃燒參數：我們會透過 JS 計算精確百分比
         let burnStartPercent = 0;
-        let burnEndPercent = 75; // 預設值，之後會被動態計算覆蓋
+        let burnEndPercent = 75; 
         
         let isBurning = false;
         let startTime = null;
@@ -139,18 +131,14 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // 核心邏輯：計算 331px 對應的百分比
         function calculateBurnRange() {
-            // 取得圖片原始尺寸（基於圖片檔案本身）
             const naturalH = cigFull.naturalHeight;
             if (naturalH > 0) {
-                // 距離底部 331px 停止，換算成頂部開始的裁切百分比
-                // 公式：((總高 - 濾嘴高) / 總高) * 100
+                // 精確計算 331px 的停止點
                 burnEndPercent = ((naturalH - 331) / naturalH) * 100;
             }
         }
 
-        // 確保圖片載入後再計算
         if (cigFull.complete) {
             calculateBurnRange();
         } else {
@@ -183,14 +171,9 @@
                 cigFull.style.opacity = '0';
             }
 
-            // 根據計算出的 burnEndPercent 進行平滑燃燒
             const currentBurnPercent = burnStartPercent + (burnEndPercent - burnStartPercent) * progress;
 
-            // 裁切
             cigFull.style.clipPath = `inset(${currentBurnPercent}% 0 0 0)`;
-
-            // 移動煙頭
-            // 因為容器高度現在是 80vh，我們直接用百分比控制 top
             cigAsh.style.top = `${currentBurnPercent}%`;
 
             const ashRect = cigAsh.getBoundingClientRect();
