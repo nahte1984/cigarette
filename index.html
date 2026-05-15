@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚬 🚬 🚬</title>
+    <title>🚬 120 🚬</title>
     <style>
         body, html {
             margin: 0;
@@ -28,14 +28,12 @@
             z-index: 10;
         }
 
-        /* 讓場景高度鎖定 80vh，寬度由內部的 001.png 自然撐開 */
         #scene {
             position: relative;
             height: 80vh;
             display: inline-block;
         }
 
-        /* 完好的香菸 (01) 作為排版與寬度的絕對基準 */
         #cig-full {
             display: block;
             height: 100%; 
@@ -45,7 +43,6 @@
             transition: opacity 3s;
         }
 
-        /* 燃燒的煙頭 (02) */
         #cig-ash {
             position: absolute;
             z-index: 3;
@@ -53,12 +50,12 @@
             height: auto;
             left: 0;
             top: 0; 
-            /* 移除 translateY(-50%) 避免煙頭高出香菸頂端 */
+            /* 【關鍵修復】把 translateY 加回來，讓煙頭能蓋住截斷線 */
+            transform: translateY(-50%);
             opacity: 0;
             transition: opacity 1s;
         }
 
-        /* 燒完的煙蒂 (03) */
         #cig-butt {
             position: absolute;
             bottom: 0; 
@@ -70,7 +67,6 @@
             transition: opacity 3s;
         }
 
-        /* 初始狀態的黑色透明區隔層 */
         #lighter-overlay {
             position: absolute;
             top: 0;
@@ -127,25 +123,39 @@
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
-        window.addEventListener('resize', resizeCanvas);
+        
+        // 監聽視窗縮放，確保寬高比例與燃燒點隨時正確
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            calculateBurnRange();
+        });
         resizeCanvas();
 
         function calculateBurnRange() {
             const naturalH = cigFull.naturalHeight;
             if (naturalH > 0) {
-                // 修改：鎖定距離底部 360px 停止
-                burnEndPercent = ((naturalH - 360) / naturalH) * 100;
+                // 【修改 2】把 360 改成 400
+                burnEndPercent = ((naturalH - 400) / naturalH) * 100;
+            }
+
+            // 【關鍵修復】動態計算起始百分比，讓煙頭頂端「剛好」切齊香菸頂部
+            // 這樣就不會產生香菸變長的錯覺，也能保留煙頭完整的形狀
+            const ashHeight = cigAsh.offsetHeight;
+            const fullHeight = cigFull.offsetHeight;
+            if (fullHeight > 0 && ashHeight > 0) {
+                // 起始點往下偏移「半顆煙頭」的高度
+                burnStartPercent = ((ashHeight / 2) / fullHeight) * 100;
             }
         }
 
-        if (cigFull.complete) {
-            calculateBurnRange();
-        } else {
-            cigFull.onload = calculateBurnRange;
-        }
+        // 確保圖片都載入完成後，再精確計算尺寸
+        window.addEventListener('load', calculateBurnRange);
 
         lighterOverlay.addEventListener('click', () => {
             if (isBurning) return;
+            
+            // 確保點擊當下重新計算一次（避免載入延遲導致高度抓錯）
+            calculateBurnRange();
             
             lighterOverlay.style.opacity = '0';
             lighterOverlay.style.pointerEvents = 'none';
@@ -172,7 +182,6 @@
 
             const currentBurnPercent = burnStartPercent + (burnEndPercent - burnStartPercent) * progress;
 
-            // 裁切線與煙頭頂端現在會完全同步對齊
             cigFull.style.clipPath = `inset(${currentBurnPercent}% 0 0 0)`;
             cigAsh.style.top = `${currentBurnPercent}%`;
 
