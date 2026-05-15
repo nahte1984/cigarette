@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚬12O🚬</title>
+    <title>🚬 🚬 🚬</title>
     <style>
         body, html {
             margin: 0;
@@ -32,14 +32,14 @@
         #scene {
             position: relative;
             height: 80vh;
-            display: inline-block; /* 緊緊包覆內容物 */
+            display: inline-block;
         }
 
         /* 完好的香菸 (01) 作為排版與寬度的絕對基準 */
         #cig-full {
             display: block;
-            height: 100%; /* 高度吃滿 80vh */
-            width: auto;  /* 寬度按比例自然縮放 */
+            height: 100%; 
+            width: auto;  
             z-index: 2;
             clip-path: inset(0% 0 0 0);
             transition: opacity 3s;
@@ -49,12 +49,11 @@
         #cig-ash {
             position: absolute;
             z-index: 3;
-            /* 寬度強制跟隨 cig-full 撐開的容器寬度，保證邊緣完美貼合 */
             width: 100%; 
             height: auto;
             left: 0;
             top: 0; 
-            transform: translateY(-50%);
+            /* 移除 translateY(-50%) 避免煙頭高出香菸頂端 */
             opacity: 0;
             transition: opacity 1s;
         }
@@ -62,9 +61,9 @@
         /* 燒完的煙蒂 (03) */
         #cig-butt {
             position: absolute;
-            bottom: 0; /* 完美貼齊底部 */
+            bottom: 0; 
             left: 0;
-            width: 100%; /* 寬度同樣跟隨基準 */
+            width: 100%; 
             height: auto;
             z-index: 1;
             opacity: 0;
@@ -115,7 +114,7 @@
         const cigAsh = document.getElementById('cig-ash');
         const cigButt = document.getElementById('cig-butt');
 
-        const DURATION = 120 * 1000; 
+        const DURATION = 20 * 1000; 
         
         let burnStartPercent = 0;
         let burnEndPercent = 75; 
@@ -134,8 +133,8 @@
         function calculateBurnRange() {
             const naturalH = cigFull.naturalHeight;
             if (naturalH > 0) {
-                // 精確計算 331px 的停止點
-                burnEndPercent = ((naturalH - 331) / naturalH) * 100;
+                // 修改：鎖定距離底部 360px 停止
+                burnEndPercent = ((naturalH - 360) / naturalH) * 100;
             }
         }
 
@@ -173,6 +172,7 @@
 
             const currentBurnPercent = burnStartPercent + (burnEndPercent - burnStartPercent) * progress;
 
+            // 裁切線與煙頭頂端現在會完全同步對齊
             cigFull.style.clipPath = `inset(${currentBurnPercent}% 0 0 0)`;
             cigAsh.style.top = `${currentBurnPercent}%`;
 
