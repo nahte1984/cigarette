@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚬 🚬 🚬</title>
+    <title>🚬  🚬</title>
     <style>
         body, html {
             margin: 0;
@@ -29,12 +29,11 @@
             z-index: 10;
         }
 
-        /* 視覺主體容器 */
+        /* 視覺主體容器：改為絕對寬高，讓所有圖片基準一致 */
         #scene {
             position: relative;
-            height: 80vh;
-            /* 預估香菸的長寬比，可依據實際圖片微調 */
-            width: 15vh; 
+            width: 75px;  /* 絕對寬度 */
+            height: 550px; /* 絕對高度 */
             display: flex;
             justify-content: center;
         }
@@ -62,23 +61,24 @@
             position: absolute;
             bottom: 0;
             width: 100%;
-            object-fit: contain;
+            height: 100%;
+            /* 移除 object-fit，強迫圖片填滿容器寬高以保持對齊 */
         }
 
         /* 完好的香菸 (01) */
         #cig-full {
             z-index: 2;
-            height: 100%;
-            /* 初始不裁切 */
             clip-path: inset(0% 0 0 0);
         }
 
         /* 燃燒的煙頭 (02) */
         #cig-ash {
+            position: absolute;
             z-index: 3;
-            width: 100%; /* 讓煙頭稍微大一點點蓋住邊緣 */
-            left: -5%;
-            top: 0%; 
+            width: 100%; /* 絕對跟隨容器寬度 */
+            height: auto;
+            left: 0;
+            top: 0; 
             opacity: 0; /* 點火前隱藏 */
             transition: opacity 1s;
         }
@@ -86,7 +86,6 @@
         /* 燒完的煙蒂 (03) */
         #cig-butt {
             z-index: 1;
-            height: 100%;
             opacity: 0; /* 預設隱藏，最後浮現 */
             transition: opacity 3s;
         }
@@ -102,7 +101,7 @@
         
         <img src="001.png" id="cig-full" class="cig-element" alt="cigarette">
         
-        <img src="002.png" id="cig-ash" alt="ash" style="position: absolute; transform: translateY(-50%);">
+        <img src="002.png" id="cig-ash" alt="ash" style="transform: translateY(-50%);">
     </div>
 
     <img src="004.png" id="lighter-btn" alt="Start Lighter">
@@ -204,7 +203,6 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // 產生有機的發射速率：利用正弦波製造「有時旺盛、有時稀薄」的呼吸感
-            // time / 3000 控制週期，Math.sin 產生 -1 到 1 的波動
             const breath = Math.sin(time / 3000); 
             const isThick = breath > 0.7; // 高峰期煙很濃
             let particlesToSpawn = isThick ? 3 : (breath > 0 ? 1 : 0.3); // 每幀產生的數量
