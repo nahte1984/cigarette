@@ -3,21 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚬 120 🚬</title>
+    <title>🚬 120 Seconds</title>
     <style>
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            background-color: #313131;
+            background-color: #313131; /* 相機無法啟動時的備用背景色 */
             overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
+        /* 攝影機背景層，放在最底層 */
+        #camera-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* 煙霧畫布，鋪滿全螢幕且不干擾點擊 */
         #smoke-canvas {
             position: absolute;
             top: 0;
@@ -32,6 +44,7 @@
             position: relative;
             height: 80vh;
             display: inline-block;
+            z-index: 5;
         }
 
         #cig-full {
@@ -50,7 +63,6 @@
             height: auto;
             left: 0;
             top: 0; 
-            /* 【關鍵修復】把 translateY 加回來，讓煙頭能蓋住截斷線 */
             transform: translateY(-50%);
             opacity: 0;
             transition: opacity 1s;
@@ -67,28 +79,46 @@
             transition: opacity 3s;
         }
 
+        /* 初始狀態的等待畫面層 */
         #lighter-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background-color: rgba(0, 0, 0, 0.31);
+            background-color: rgba(0, 0, 0, 0.6); /* 加深一點背景讓按鈕更突出 */
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 50;
-            cursor: pointer;
             transition: opacity 0.8s ease;
         }
 
-        #lighter-btn {
-            height: 35vh; 
+        /* 簡約白底圓框按鈕設計 */
+        #start-btn {
+            background-color: #ffffff;
+            color: #000000;
+            border: none;
+            border-radius: 50px;
+            padding: 16px 36px;
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        #start-btn:active {
+            transform: scale(0.95);
+            background-color: #e0e0e0;
         }
 
     </style>
 </head>
 <body>
+
+    <video id="camera-bg" autoplay playsinline muted></video>
 
     <canvas id="smoke-canvas"></canvas>
 
@@ -99,10 +129,12 @@
     </div>
 
     <div id="lighter-overlay">
-        <img src="004.png" id="lighter-btn" alt="Start Lighter">
+        <button id="start-btn">count down 120 sec.</button>
     </div>
 
     <script>
+        const videoBg = document.getElementById('camera-bg');
+        const startBtn = document.getElementById('start-btn');
         const canvas = document.getElementById('smoke-canvas');
         const ctx = canvas.getContext('2d');
         const lighterOverlay = document.getElementById('lighter-overlay');
@@ -110,7 +142,7 @@
         const cigAsh = document.getElementById('cig-ash');
         const cigButt = document.getElementById('cig-butt');
 
-        const DURATION = 20 * 1000; 
+        const DURATION = 120 * 1000; 
         
         let burnStartPercent = 0;
         let burnEndPercent = 75; 
@@ -124,7 +156,6 @@
             canvas.height = window.innerHeight;
         }
         
-        // 監聽視窗縮放，確保寬高比例與燃燒點隨時正確
         window.addEventListener('resize', () => {
             resizeCanvas();
             calculateBurnRange();
@@ -134,29 +165,49 @@
         function calculateBurnRange() {
             const naturalH = cigFull.naturalHeight;
             if (naturalH > 0) {
-                // 【修改 2】把 360 改成 400
                 burnEndPercent = ((naturalH - 400) / naturalH) * 100;
             }
 
-            // 【關鍵修復】動態計算起始百分比，讓煙頭頂端「剛好」切齊香菸頂部
-            // 這樣就不會產生香菸變長的錯覺，也能保留煙頭完整的形狀
             const ashHeight = cigAsh.offsetHeight;
             const fullHeight = cigFull.offsetHeight;
             if (fullHeight > 0 && ashHeight > 0) {
-                // 起始點往下偏移「半顆煙頭」的高度
                 burnStartPercent = ((ashHeight / 2) / fullHeight) * 100;
             }
         }
 
-        // 確保圖片都載入完成後，再精確計算尺寸
         window.addEventListener('load', calculateBurnRange);
 
-        lighterOverlay.addEventListener('click', () => {
+        // 改為監聽按鈕點擊事件，並加入非同步 (async) 呼叫相機權限
+        startBtn.addEventListener('click', async () => {
             if (isBurning) return;
+
+            // 改變按鈕文字提示使用者正在開啟相機
+            startBtn.innerText = "Accessing Camera...";
+
+            try {
+                // 要求後置相機權限
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" },
+                    audio: false
+                });
+                
+                videoBg.srcObject = stream;
+                
+                // 等待影片串流準備就緒
+                await new Promise(resolve => {
+                    videoBg.onloadedmetadata = () => {
+                        videoBg.play();
+                        resolve();
+                    };
+                });
+            } catch (err) {
+                console.error("相機存取失敗或遭拒絕:", err);
+                // 即使相機失敗，仍然繼續執行燃燒動畫 (會在預設深色背景下進行)
+            }
             
-            // 確保點擊當下重新計算一次（避免載入延遲導致高度抓錯）
             calculateBurnRange();
             
+            // 淡出覆蓋層，顯示背景(實景)與香菸
             lighterOverlay.style.opacity = '0';
             lighterOverlay.style.pointerEvents = 'none';
             cigAsh.style.opacity = '1';
@@ -233,10 +284,11 @@
                 
                 opacity *= p.baseAlpha;
 
+                // 稍微調整煙霧的顏色，在真實相機背景下可以微微透光一點
                 const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
-                gradient.addColorStop(0, `rgba(220, 220, 225, ${opacity * 0.5})`);
-                gradient.addColorStop(0.5, `rgba(200, 200, 205, ${opacity * 0.2})`);
-                gradient.addColorStop(1, `rgba(200, 200, 205, 0)`);
+                gradient.addColorStop(0, `rgba(240, 240, 245, ${opacity * 0.6})`);
+                gradient.addColorStop(0.5, `rgba(220, 220, 230, ${opacity * 0.3})`);
+                gradient.addColorStop(1, `rgba(220, 220, 230, 0)`);
 
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
