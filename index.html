@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚬 🚬</title>
+    <title>🚬  🚬</title>
     <style>
         body, html {
             margin: 0;
@@ -18,7 +18,6 @@
             font-family: sans-serif;
         }
 
-        /* 煙霧畫布，鋪滿全螢幕且不干擾點擊 */
         #smoke-canvas {
             position: absolute;
             top: 0;
@@ -29,46 +28,53 @@
             z-index: 10;
         }
 
-        /* 視覺主體容器：改為絕對寬度，高度由內部圖片撐開，確保比例完美 */
+        /* 1. 調整容器：確保在任何螢幕下都只佔高度的 80% (上下留 10%) */
         #scene {
             position: relative;
-            width: 95px;  /* 絕對寬度 95px */
+            width: 95px; /* 寬度固定為 95px */
+            height: 80vh; /* 高度縮放至螢幕的 80% */
             display: flex;
             justify-content: center;
+            align-items: flex-end; /* 讓內容對齊底部，轉換時不露餡 */
         }
 
-        /* 完好的香菸 (01) 作為排版高度基準 */
+        /* 完好的香菸 (01) */
         #cig-full {
             display: block;
             width: 100%;
-            height: auto;
+            height: 100%; /* 填滿容器高度 */
+            object-fit: contain; /* 保持比例 */
+            object-position: bottom; /* 貼齊底部 */
             z-index: 2;
             clip-path: inset(0% 0 0 0);
-            transition: opacity 3s; /* 燒完時的淡出 */
+            transition: opacity 3s;
         }
 
         /* 燃燒的煙頭 (02) */
         #cig-ash {
             position: absolute;
             z-index: 3;
-            width: 100%; /* 絕對跟隨容器 95px 寬度 */
+            width: 100%;
             height: auto;
             left: 0;
+            /* 初始位置由 JS 計算 */
             top: 0; 
-            transform: translateY(-50%); /* 讓煙頭中心點對齊裁切線 */
-            opacity: 0; /* 點火前隱藏 */
+            transform: translateY(-50%);
+            opacity: 0;
             transition: opacity 1s;
         }
 
         /* 燒完的煙蒂 (03) */
         #cig-butt {
             position: absolute;
-            bottom: 0; /* 絕對對齊下方邊界，確保轉換不露餡 */
+            bottom: 0;
             left: 0;
             width: 100%;
-            height: auto;
+            height: 100%;
+            object-fit: contain;
+            object-position: bottom;
             z-index: 1;
-            opacity: 0; /* 預設隱藏，最後浮現 */
+            opacity: 0;
             transition: opacity 3s;
         }
 
@@ -79,16 +85,15 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            background-color: rgba(0, 0, 0, 0.31); /* 31% 透明度的黑色 */
+            background-color: rgba(0, 0, 0, 0.31);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 50;
             cursor: pointer;
-            transition: opacity 0.8s ease; /* 單純的 fade out 效果 */
+            transition: opacity 0.8s ease;
         }
 
-        /* 打火機按鈕，已移除陰影與 hover 動畫 */
         #lighter-btn {
             height: 35vh; 
         }
@@ -117,16 +122,16 @@
         const cigAsh = document.getElementById('cig-ash');
         const cigButt = document.getElementById('cig-butt');
 
-        // --- 設定燃燒參數 ---
-        const DURATION = 120 * 1000; // 120 秒
-        const BURN_START_PERCENT = 0;   // 從最頂端開始燒
-        const BURN_END_PERCENT = 75;    // 燒到 75% 的位置（留下濾嘴）
+        const DURATION = 120 * 1000; 
+        
+        // 燃燒參數：我們會透過 JS 計算精確百分比
+        let burnStartPercent = 0;
+        let burnEndPercent = 75; // 預設值，之後會被動態計算覆蓋
         
         let isBurning = false;
         let startTime = null;
         let particles = [];
         
-        // 確保畫布尺寸與視窗同步
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -134,24 +139,36 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // --- 點火互動 ---
+        // 核心邏輯：計算 331px 對應的百分比
+        function calculateBurnRange() {
+            // 取得圖片原始尺寸（基於圖片檔案本身）
+            const naturalH = cigFull.naturalHeight;
+            if (naturalH > 0) {
+                // 距離底部 331px 停止，換算成頂部開始的裁切百分比
+                // 公式：((總高 - 濾嘴高) / 總高) * 100
+                burnEndPercent = ((naturalH - 331) / naturalH) * 100;
+            }
+        }
+
+        // 確保圖片載入後再計算
+        if (cigFull.complete) {
+            calculateBurnRange();
+        } else {
+            cigFull.onload = calculateBurnRange;
+        }
+
         lighterOverlay.addEventListener('click', () => {
             if (isBurning) return;
             
-            // 單純 Fade out 隱藏黑底與打火機
             lighterOverlay.style.opacity = '0';
             lighterOverlay.style.pointerEvents = 'none';
-            
-            // 點燃煙頭
             cigAsh.style.opacity = '1';
             
-            // 啟動動畫
             isBurning = true;
             startTime = performance.now();
             requestAnimationFrame(animateSystem);
         });
 
-        // --- 核心動畫迴圈 (控制裁切、煙頭位置與煙霧) ---
         function animateSystem(currentTime) {
             if (!isBurning) return;
 
@@ -160,56 +177,48 @@
             
             if (progress >= 1) {
                 progress = 1;
-                isBurning = false; // 燃燒結束
-                
-                // 漸變顯示最後的煙蒂圖片
+                isBurning = false;
                 cigButt.style.opacity = '1';
                 cigAsh.style.opacity = '0';
                 cigFull.style.opacity = '0';
             }
 
-            // 1. 計算當前燃燒到了百分之幾 (0 到 75%)
-            const currentBurnPercent = BURN_START_PERCENT + (BURN_END_PERCENT - BURN_START_PERCENT) * progress;
+            // 根據計算出的 burnEndPercent 進行平滑燃燒
+            const currentBurnPercent = burnStartPercent + (burnEndPercent - burnStartPercent) * progress;
 
-            // 2. 裁切香菸 (由上往下隱藏)
+            // 裁切
             cigFull.style.clipPath = `inset(${currentBurnPercent}% 0 0 0)`;
 
-            // 3. 移動煙頭
+            // 移動煙頭
+            // 因為容器高度現在是 80vh，我們直接用百分比控制 top
             cigAsh.style.top = `${currentBurnPercent}%`;
 
-            // 4. 取得煙頭在螢幕上的即時座標，作為煙霧發射點
             const ashRect = cigAsh.getBoundingClientRect();
             const emitX = ashRect.left + ashRect.width / 2;
             const emitY = ashRect.top + ashRect.height / 2;
 
-            // 5. 更新煙霧粒子系統
             updateAndDrawSmoke(emitX, emitY, currentTime);
 
             if (isBurning) {
                 requestAnimationFrame(animateSystem);
             } else {
-                // 燒完後讓剩餘的煙霧繼續飄散飄完
                 requestAnimationFrame(flushSmoke);
             }
         }
 
         function flushSmoke(currentTime) {
-            updateAndDrawSmoke(-1000, -1000, currentTime, false); // 移開原點並停止發射
+            updateAndDrawSmoke(-1000, -1000, currentTime, false);
             if (particles.length > 0) {
                 requestAnimationFrame(flushSmoke);
             }
         }
 
-        // --- 有機煙霧粒子系統 ---
         function updateAndDrawSmoke(emitX, emitY, time, emitting = true) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 產生有機的發射速率：利用正弦波製造「有時旺盛、有時稀薄」的呼吸感
             const breath = Math.sin(time / 3000); 
-            const isThick = breath > 0.7; // 高峰期煙很濃
-            let particlesToSpawn = isThick ? 3 : (breath > 0 ? 1 : 0.3); // 每幀產生的數量
+            const isThick = breath > 0.7;
+            let particlesToSpawn = isThick ? 3 : (breath > 0 ? 1 : 0.3);
 
-            // 如果 < 1，用機率決定是否產生
             if (emitting) {
                 if (particlesToSpawn < 1) {
                     if (Math.random() < particlesToSpawn) spawnParticle(emitX, emitY);
@@ -218,28 +227,20 @@
                 }
             }
 
-            // 更新與繪製粒子
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.life++;
-
-                // 賦予粒子向上的力與隨機左右擾動 (風的模擬)
                 p.y -= p.vy;
                 p.x += Math.sin(p.life * 0.02 + p.seed) * 1.5 + p.vx;
-                
-                // 粒子隨時間膨脹
                 p.radius += 0.2;
 
-                // 生命週期透明度：淡入 -> 維持 -> 淡出
                 let opacity = 0;
                 if (p.life < 50) opacity = p.life / 50;
                 else if (p.life < p.maxLife - 100) opacity = 1;
                 else opacity = Math.max(0, (p.maxLife - p.life) / 100);
                 
-                // 基礎透明度再乘上有機感係數
                 opacity *= p.baseAlpha;
 
-                // 繪製粒子 (使用放射狀漸層營造柔和的煙霧邊緣)
                 const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
                 gradient.addColorStop(0, `rgba(220, 220, 225, ${opacity * 0.5})`);
                 gradient.addColorStop(0.5, `rgba(200, 200, 205, ${opacity * 0.2})`);
@@ -250,24 +251,21 @@
                 ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 移除死亡粒子
-                if (p.life >= p.maxLife) {
-                    particles.splice(i, 1);
-                }
+                if (p.life >= p.maxLife) particles.splice(i, 1);
             }
         }
 
         function spawnParticle(x, y) {
             particles.push({
-                x: x + (Math.random() * 10 - 5), // 在煙頭附近稍微隨機散開
+                x: x + (Math.random() * 10 - 5),
                 y: y,
-                vx: (Math.random() - 0.5) * 0.5, // 初始水平微風
-                vy: Math.random() * 1.5 + 1.5,   // 上升速度
-                radius: Math.random() * 10 + 10, // 初始大小
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: Math.random() * 1.5 + 1.5,
+                radius: Math.random() * 10 + 10,
                 life: 0,
-                maxLife: Math.random() * 200 + 300, // 存活時間，決定煙霧能飄多高
-                seed: Math.random() * 100, // 用於正弦波動的種子
-                baseAlpha: Math.random() * 0.4 + 0.1 // 煙霧濃淡差異
+                maxLife: Math.random() * 200 + 300,
+                seed: Math.random() * 100,
+                baseAlpha: Math.random() * 0.4 + 0.1
             });
         }
     </script>
