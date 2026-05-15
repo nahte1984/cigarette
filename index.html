@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚬 🚬 🚬</title>
+    <title>🚬 🚬</title>
     <style>
         body, html {
             margin: 0;
@@ -29,65 +29,68 @@
             z-index: 10;
         }
 
-        /* 視覺主體容器：改為絕對寬高，讓所有圖片基準一致 */
+        /* 視覺主體容器：改為絕對寬度，高度由內部圖片撐開，確保比例完美 */
         #scene {
             position: relative;
-            width: 75px;  /* 絕對寬度 */
-            height: 550px; /* 絕對高度 */
+            width: 95px;  /* 絕對寬度 95px */
             display: flex;
             justify-content: center;
         }
 
-        /* 打火機按鈕 */
-        #lighter-btn {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            height: 35vh;
-            cursor: pointer;
-            z-index: 50;
-            transition: opacity 0.8s ease, transform 0.8s ease;
-            /* 加上一點懸浮陰影增加點擊慾望 */
-            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.2)); 
-        }
-
-        #lighter-btn:hover {
-            transform: translate(-50%, -52%) scale(1.02);
-        }
-
-        /* 圖片共用設定 */
-        .cig-element {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 100%;
-            /* 移除 object-fit，強迫圖片填滿容器寬高以保持對齊 */
-        }
-
-        /* 完好的香菸 (01) */
+        /* 完好的香菸 (01) 作為排版高度基準 */
         #cig-full {
+            display: block;
+            width: 100%;
+            height: auto;
             z-index: 2;
             clip-path: inset(0% 0 0 0);
+            transition: opacity 3s; /* 燒完時的淡出 */
         }
 
         /* 燃燒的煙頭 (02) */
         #cig-ash {
             position: absolute;
             z-index: 3;
-            width: 100%; /* 絕對跟隨容器寬度 */
+            width: 100%; /* 絕對跟隨容器 95px 寬度 */
             height: auto;
             left: 0;
             top: 0; 
+            transform: translateY(-50%); /* 讓煙頭中心點對齊裁切線 */
             opacity: 0; /* 點火前隱藏 */
             transition: opacity 1s;
         }
 
         /* 燒完的煙蒂 (03) */
         #cig-butt {
+            position: absolute;
+            bottom: 0; /* 絕對對齊下方邊界，確保轉換不露餡 */
+            left: 0;
+            width: 100%;
+            height: auto;
             z-index: 1;
             opacity: 0; /* 預設隱藏，最後浮現 */
             transition: opacity 3s;
+        }
+
+        /* 初始狀態的黑色透明區隔層 */
+        #lighter-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.31); /* 31% 透明度的黑色 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            cursor: pointer;
+            transition: opacity 0.8s ease; /* 單純的 fade out 效果 */
+        }
+
+        /* 打火機按鈕，已移除陰影與 hover 動畫 */
+        #lighter-btn {
+            height: 35vh; 
         }
 
     </style>
@@ -97,19 +100,19 @@
     <canvas id="smoke-canvas"></canvas>
 
     <div id="scene">
-        <img src="003.png" id="cig-butt" class="cig-element" alt="butt">
-        
-        <img src="001.png" id="cig-full" class="cig-element" alt="cigarette">
-        
-        <img src="002.png" id="cig-ash" alt="ash" style="transform: translateY(-50%);">
+        <img src="003.png" id="cig-butt" alt="butt">
+        <img src="001.png" id="cig-full" alt="cigarette">
+        <img src="002.png" id="cig-ash" alt="ash">
     </div>
 
-    <img src="004.png" id="lighter-btn" alt="Start Lighter">
+    <div id="lighter-overlay">
+        <img src="004.png" id="lighter-btn" alt="Start Lighter">
+    </div>
 
     <script>
         const canvas = document.getElementById('smoke-canvas');
         const ctx = canvas.getContext('2d');
-        const lighterBtn = document.getElementById('lighter-btn');
+        const lighterOverlay = document.getElementById('lighter-overlay');
         const cigFull = document.getElementById('cig-full');
         const cigAsh = document.getElementById('cig-ash');
         const cigButt = document.getElementById('cig-butt');
@@ -132,13 +135,12 @@
         resizeCanvas();
 
         // --- 點火互動 ---
-        lighterBtn.addEventListener('click', () => {
+        lighterOverlay.addEventListener('click', () => {
             if (isBurning) return;
             
-            // 隱藏打火機
-            lighterBtn.style.opacity = '0';
-            lighterBtn.style.pointerEvents = 'none';
-            lighterBtn.style.transform = 'translate(-50%, 100%) scale(0.8)'; // 往下掉落的視覺
+            // 單純 Fade out 隱藏黑底與打火機
+            lighterOverlay.style.opacity = '0';
+            lighterOverlay.style.pointerEvents = 'none';
             
             // 點燃煙頭
             cigAsh.style.opacity = '1';
