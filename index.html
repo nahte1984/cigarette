@@ -24,7 +24,7 @@
             top: 0;
             left: 0;
             width: 100vw;
-            height: 100vh;
+            height: 100svh; /* 改用 svh 避免行動端工具列推擠 */
             object-fit: cover;
             z-index: 1;
         }
@@ -35,14 +35,14 @@
             top: 0;
             left: 0;
             width: 100vw;
-            height: 100vh;
+            height: 100svh;
             pointer-events: none;
             z-index: 10;
         }
 
         #scene {
             position: relative;
-            height: 80vh;
+            height: 80svh; /* 確保主體維持在安全可視範圍內 */
             display: inline-block;
             z-index: 5;
         }
@@ -85,8 +85,8 @@
             top: 0;
             left: 0;
             width: 100vw;
-            height: 100vh;
-            background-color: rgba(0, 0, 0, 0.6); /* 加深一點背景讓按鈕更突出 */
+            height: 100svh;
+            background-color: rgba(0, 0, 0, 0.31); /* 保持 31% 透明度的黑色 */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -133,6 +133,7 @@
     </div>
 
     <script>
+        const scene = document.getElementById('scene');
         const videoBg = document.getElementById('camera-bg');
         const startBtn = document.getElementById('start-btn');
         const canvas = document.getElementById('smoke-canvas');
@@ -157,35 +158,52 @@
         }
         
         window.addEventListener('resize', () => {
+            // 視窗縮放時先解鎖寬度，讓佈局重新計算後再重新鎖定
+            scene.style.width = 'auto';
             resizeCanvas();
-            calculateBurnRange();
+            // 給予瀏覽器微小的時間差重新渲染，再計算鎖定邊界
+            setTimeout(calculateBurnRange, 50);
         });
         resizeCanvas();
 
         function calculateBurnRange() {
-            const naturalH = cigFull.naturalHeight;
-            if (naturalH > 0) {
-                burnEndPercent = ((naturalH - 400) / naturalH) * 100;
-            }
+            const fullNaturalH = cigFull.naturalHeight;
+            const fullNaturalW = cigFull.naturalWidth;
+            const ashNaturalH = cigAsh.naturalHeight;
+            const ashNaturalW = cigAsh.naturalWidth;
 
-            const ashHeight = cigAsh.offsetHeight;
-            const fullHeight = cigFull.offsetHeight;
-            if (fullHeight > 0 && ashHeight > 0) {
-                burnStartPercent = ((ashHeight / 2) / fullHeight) * 100;
+            if (fullNaturalH > 0 && fullNaturalW > 0) {
+                // 【核心修復 1】將香菸容器鎖定為絕對像素寬度，徹底根除 Chrome 閒置時的動態寬度像素位移偏移
+                const currentHeight = cigFull.offsetHeight;
+                if (currentHeight > 0) {
+                    const computedWidth = (fullNaturalW / fullNaturalH) * currentHeight;
+                    scene.style.width = `${computedWidth}px`;
+                }
+
+                // 【核心修復 2】改為 400 停止點
+                burnEndPercent = ((fullNaturalH - 400) / fullNaturalH) * 100;
+
+                // 【核心修復 3】純數學幾何公式計算起始點，完全排除 DOM 未渲染完成時量到 0 或大尺寸的問題
+                if (ashNaturalH > 0 && ashNaturalW > 0) {
+                    const ashAspect = ashNaturalH / ashNaturalW;
+                    const fullAspect = fullNaturalH / fullNaturalW;
+                    burnStartPercent = (ashAspect / fullAspect) * 50;
+                }
             }
         }
 
+        // 確保不論是快取還是初次載入，都精確計算
         window.addEventListener('load', calculateBurnRange);
+        if (cigFull.complete && cigAsh.complete) {
+            calculateBurnRange();
+        }
 
-        // 改為監聽按鈕點擊事件，並加入非同步 (async) 呼叫相機權限
         startBtn.addEventListener('click', async () => {
             if (isBurning) return;
 
-            // 改變按鈕文字提示使用者正在開啟相機
             startBtn.innerText = "Доступ к камере...";
 
             try {
-                // 要求後置相機權限
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "environment" },
                     audio: false
@@ -193,7 +211,6 @@
                 
                 videoBg.srcObject = stream;
                 
-                // 等待影片串流準備就緒
                 await new Promise(resolve => {
                     videoBg.onloadedmetadata = () => {
                         videoBg.play();
@@ -202,12 +219,11 @@
                 });
             } catch (err) {
                 console.error("相機存取失敗或遭拒絕:", err);
-                // 即使相機失敗，仍然繼續執行燃燒動畫 (會在預設深色背景下進行)
             }
             
+            // 啟動前強制重新鎖定與核對一次幾何參數
             calculateBurnRange();
             
-            // 淡出覆蓋層，顯示背景(實景)與香菸
             lighterOverlay.style.opacity = '0';
             lighterOverlay.style.pointerEvents = 'none';
             cigAsh.style.opacity = '1';
@@ -284,7 +300,6 @@
                 
                 opacity *= p.baseAlpha;
 
-                // 稍微調整煙霧的顏色，在真實相機背景下可以微微透光一點
                 const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
                 gradient.addColorStop(0, `rgba(240, 240, 245, ${opacity * 0.6})`);
                 gradient.addColorStop(0.5, `rgba(220, 220, 230, ${opacity * 0.3})`);
